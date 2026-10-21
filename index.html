@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pencatatan Keuangan Majelis Ta'lim Bani Amsar</title>
+<title>Keuangan Maulid Nabi SAW - Majelis Ta'lim Bani Amsar</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -386,7 +386,7 @@
 
     <h2>Majelis Ta'lim Bani Amsar</h2>
     <p class="subtitle">Bojonggede</p>
-    <p class="app-name">Pencatatan Keuangan</p>
+    <p class="app-name">Sistem Keuangan Maulid Nabi SAW</p>
 
     <form id="loginForm">
       <div class="form-group">
@@ -407,7 +407,7 @@
     </form>
 
     <p class="login-hint">
-      Hanya untuk panitia Majelis Ta'lim Bani Amsar.<br>
+      Hanya untuk panitia Maulid Nabi SAW.<br>
       Hubungi ketua panitia jika lupa password.
     </p>
   </div>
@@ -422,8 +422,8 @@
            onerror="this.style.display='none'; this.parentElement.innerHTML='🕌'; this.parentElement.style.display='flex'; this.parentElement.style.alignItems='center'; this.parentElement.style.justifyContent='center'; this.parentElement.style.fontSize='1.8rem';">
     </div>
     <div class="header-text">
-      <h1>Pencatatan Keuangan Majelis Ta'lim Bani Amsar</h1>
-      <p>Bojonggede</p>
+      <h1>Sistem Keuangan Maulid Nabi SAW</h1>
+      <p>Majelis Ta'lim Bani Amsar — Bojonggede</p>
     </div>
   </header>
 
@@ -931,7 +931,7 @@ function exportCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `pencatatan-keuangan-bani-amsar-${todayStr()}.csv`;
+  a.download = `keuangan-maulid-bani-amsar-${todayStr()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
   showToast(`${transactions.length} transaksi berhasil diexport`, 'success', 'Export Berhasil');
