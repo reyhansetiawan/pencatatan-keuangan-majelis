@@ -13,7 +13,7 @@
     padding: 20px;
     color: #333;
   }
-  .container { max-width: 1200px; margin: 0 auto; }
+  .container { max-width: 1400px; margin: 0 auto; }
 
   /* ============ LOGIN SCREEN ============ */
   .login-overlay {
@@ -206,6 +206,7 @@
   .card.income .value { color: #16a34a; }
   .card.expense .value { color: #dc2626; }
   .card.balance .value { color: #0f5132; }
+  .card.goods .value { color: #f59e0b; }
 
   .panel {
     background: white; padding: 25px; border-radius: 12px;
@@ -251,11 +252,18 @@
     display: flex; gap: 10px; margin-bottom: 15px;
     flex-wrap: wrap; align-items: center;
   }
-  .toolbar input, .toolbar select {
+  .toolbar input {
     padding: 8px 12px; border: 1px solid #ddd;
     border-radius: 8px; font-size: 0.9rem;
+    flex: 1; min-width: 200px;
   }
-  .toolbar input { flex: 1; min-width: 200px; }
+
+  /* CSS UNTUK 3 KUBU TABEL */
+  .tables-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 20px;
+  }
 
   .table-wrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -266,11 +274,9 @@
   }
   td { padding: 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
   tr:hover td { background: #f9fafb; }
-  .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
-  .badge.in { background: #dcfce7; color: #166534; }
-  .badge.out { background: #fee2e2; color: #991b1b; }
   .amount-in { color: #16a34a; font-weight: 600; }
   .amount-out { color: #dc2626; font-weight: 600; }
+  .amount-goods { color: #f59e0b; font-weight: 600; }
   .empty { text-align: center; padding: 40px; color: #999; font-style: italic; }
   .actions-cell { white-space: nowrap; }
 
@@ -369,7 +375,8 @@
     body { background: white; padding: 0; }
     .no-print { display: none !important; }
     .card { box-shadow: none; border: 1px solid #ddd; }
-    .panel { box-shadow: none; }
+    .panel { box-shadow: none; page-break-inside: avoid; }
+    .tables-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -429,16 +436,20 @@
 
   <div class="summary">
     <div class="card income">
-      <h3>Total Pemasukan</h3>
+      <h3>Total Pemasukan (Uang)</h3>
       <div class="value" id="totalIncome">Rp 0</div>
     </div>
     <div class="card expense">
-      <h3>Total Pengeluaran</h3>
+      <h3>Total Pengeluaran (Uang)</h3>
       <div class="value" id="totalExpense">Rp 0</div>
     </div>
     <div class="card balance">
       <h3>Saldo Akhir</h3>
       <div class="value" id="totalBalance">Rp 0</div>
+    </div>
+    <div class="card goods">
+      <h3>Total Sedekah Barang</h3>
+      <div class="value" id="totalGoods">0 Item</div>
     </div>
   </div>
 
@@ -449,21 +460,36 @@
         <div class="form-group">
           <label>Jenis Transaksi</label>
           <select id="type" required>
-            <option value="pemasukan">Pemasukan</option>
-            <option value="pengeluaran">Pengeluaran</option>
+            <option value="pemasukan">Pemasukan (Uang)</option>
+            <option value="pengeluaran">Pengeluaran (Uang)</option>
+            <option value="barang">Sedekah Barang / Konsumsi</option>
           </select>
         </div>
+        
         <div class="form-group">
-          <label>Nama Donatur / Penerima</label>
+          <label id="donorLabel">Nama Donatur</label>
           <input type="text" id="donor" placeholder="Contoh: H. Ahmad" required>
         </div>
-        <div class="form-group">
-          <label>Keterangan</label>
-          <input type="text" id="description" placeholder="Contoh: Donasi Maulid" required>
-        </div>
-        <div class="form-group">
+
+        <!-- Kolom Khusus Uang -->
+        <div class="form-group" id="amountGroup">
           <label>Nominal (Rp)</label>
-          <input type="text" id="amount" placeholder="200,000" inputmode="numeric" required>
+          <input type="text" id="amount" placeholder="200,000" inputmode="numeric">
+        </div>
+
+        <!-- Kolom Khusus Barang -->
+        <div class="form-group" id="itemNameGroup" style="display:none;">
+          <label>Nama Barang</label>
+          <input type="text" id="itemName" placeholder="Contoh: Aqua Dus">
+        </div>
+        <div class="form-group" id="itemQtyGroup" style="display:none;">
+          <label>Jumlah</label>
+          <input type="text" id="itemQty" placeholder="Contoh: 2 Dus">
+        </div>
+
+        <div class="form-group">
+          <label>Keterangan Tambahan</label>
+          <input type="text" id="description" placeholder="Contoh: Donasi Maulid" required>
         </div>
         <div class="form-group">
           <label>Tanggal</label>
@@ -477,36 +503,79 @@
     </form>
   </div>
 
-  <div class="panel">
-    <h2>📋 Daftar Transaksi</h2>
-    <div class="toolbar no-print">
-      <input type="text" id="search" placeholder="🔍 Cari nama donatur atau keterangan...">
-      <select id="filterType">
-        <option value="all">Semua Jenis</option>
-        <option value="pemasukan">Pemasukan</option>
-        <option value="pengeluaran">Pengeluaran</option>
-      </select>
+  <!-- TOOLBAR PENCARIAN & AKSI -->
+  <div class="panel no-print" style="padding: 15px 25px;">
+    <div class="toolbar" style="margin-bottom: 0;">
+      <input type="text" id="search" placeholder="🔍 Cari nama donatur/penerima atau keterangan...">
       <button class="btn btn-secondary" onclick="exportCSV()">📥 Export CSV</button>
       <button class="btn btn-secondary" onclick="window.print()">🖨️ Cetak</button>
-      <button class="btn btn-danger" onclick="confirmReset()">🗑️ Reset</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>No</th>
-            <th>Tanggal</th>
-            <th>Jenis</th>
-            <th>Nama Donatur/Penerima</th>
-            <th>Keterangan</th>
-            <th>Nominal</th>
-            <th class="no-print">Aksi</th>
-          </tr>
-        </thead>
-        <tbody id="tableBody"></tbody>
-      </table>
+      <button class="btn btn-danger" onclick="confirmReset()">🗑️ Reset Semua</button>
     </div>
   </div>
+
+  <!-- 3 KUBU TABEL -->
+  <div class="tables-grid">
+    <!-- KUBU PEMASUKAN -->
+    <div class="panel">
+      <h2 style="color: #16a34a;">📈 Daftar Pemasukan (Uang)</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Tanggal</th>
+              <th>Nama Donatur</th>
+              <th>Keterangan</th>
+              <th>Nominal</th>
+              <th class="no-print">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="incomeTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- KUBU PENGELUARAN -->
+    <div class="panel">
+      <h2 style="color: #dc2626;">📉 Daftar Pengeluaran (Uang)</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Tanggal</th>
+              <th>Penerima / Toko</th>
+              <th>Keterangan</th>
+              <th>Nominal</th>
+              <th class="no-print">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="expenseTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- KUBU SEDEKAH BARANG -->
+    <div class="panel">
+      <h2 style="color: #f59e0b;">🎁 Daftar Sedekah Barang</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Tanggal</th>
+              <th>Nama Donatur</th>
+              <th>Barang</th>
+              <th>Jumlah</th>
+              <th class="no-print">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="goodsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ================= MODAL CUSTOM ================= -->
@@ -695,15 +764,58 @@ let editId = null;
 const form = document.getElementById('transactionForm');
 const typeInput = document.getElementById('type');
 const donorInput = document.getElementById('donor');
+const donorLabel = document.getElementById('donorLabel');
 const descriptionInput = document.getElementById('description');
 const amountInput = document.getElementById('amount');
+const amountGroup = document.getElementById('amountGroup');
+const itemNameInput = document.getElementById('itemName');
+const itemNameGroup = document.getElementById('itemNameGroup');
+const itemQtyInput = document.getElementById('itemQty');
+const itemQtyGroup = document.getElementById('itemQtyGroup');
 const dateInput = document.getElementById('date');
 const submitBtn = document.getElementById('submitBtn');
 const cancelBtn = document.getElementById('cancelBtn');
 const formTitle = document.getElementById('formTitle');
-const tableBody = document.getElementById('tableBody');
 const searchInput = document.getElementById('search');
-const filterType = document.getElementById('filterType');
+
+// --- LOGIKA FORM DINAMIS ---
+function updateForm() {
+  const type = typeInput.value;
+  
+  if (type === 'pemasukan') {
+    donorLabel.textContent = 'Nama Donatur';
+    donorInput.placeholder = 'Contoh: H. Ahmad';
+    donorInput.required = true;
+    amountGroup.style.display = 'flex';
+    amountInput.required = true;
+    itemNameGroup.style.display = 'none';
+    itemQtyGroup.style.display = 'none';
+    itemNameInput.required = false;
+    itemQtyInput.required = false;
+  } else if (type === 'pengeluaran') {
+    donorLabel.textContent = 'Penerima / Toko (Opsional)';
+    donorInput.placeholder = 'Contoh: Toko Bangunan (Boleh dikosongkan)';
+    donorInput.required = false; // Tidak wajib untuk pengeluaran
+    amountGroup.style.display = 'flex';
+    amountInput.required = true;
+    itemNameGroup.style.display = 'none';
+    itemQtyGroup.style.display = 'none';
+    itemNameInput.required = false;
+    itemQtyInput.required = false;
+  } else if (type === 'barang') {
+    donorLabel.textContent = 'Nama Donatur (Pemberi Barang)';
+    donorInput.placeholder = 'Contoh: Ibu Aisyah';
+    donorInput.required = true;
+    amountGroup.style.display = 'none';
+    amountInput.required = false;
+    itemNameGroup.style.display = 'flex';
+    itemNameInput.required = true;
+    itemQtyGroup.style.display = 'flex';
+    itemQtyInput.required = true;
+  }
+}
+typeInput.addEventListener('change', updateForm);
+updateForm(); // Panggil saat pertama kali load
 
 function todayStr() {
   const d = new Date();
@@ -743,7 +855,7 @@ function save() {
 
 function escapeHtml(str) {
   const div = document.createElement('div');
-  div.textContent = str;
+  div.textContent = str || '';
   return div.innerHTML;
 }
 
@@ -752,69 +864,133 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// --- FUNGSI RENDER DIPERBARUI UNTUK 3 TABEL ---
 function render() {
   const search = searchInput.value.toLowerCase();
-  const filter = filterType.value;
 
   let filtered = transactions.filter(t => {
-    const matchSearch = t.donor.toLowerCase().includes(search) ||
-                        t.description.toLowerCase().includes(search);
-    const matchType = filter === 'all' || t.type === filter;
-    return matchSearch && matchType;
+    const donorMatch = (t.donor || '').toLowerCase().includes(search);
+    const descMatch = (t.description || '').toLowerCase().includes(search);
+    const itemMatch = (t.itemName || '').toLowerCase().includes(search);
+    return donorMatch || descMatch || itemMatch;
   });
 
+  // Urutkan berdasarkan tanggal terbaru
   filtered.sort((a, b) => {
     if (a.date !== b.date) return b.date.localeCompare(a.date);
     return b.id - a.id;
   });
 
-  if (filtered.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="7" class="empty">Belum ada transaksi</td></tr>';
-  } else {
-    tableBody.innerHTML = filtered.map((t, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td>${formatDate(t.date)}</td>
-        <td><span class="badge ${t.type === 'pemasukan' ? 'in' : 'out'}">${t.type === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran'}</span></td>
-        <td>${escapeHtml(t.donor)}</td>
-        <td>${escapeHtml(t.description)}</td>
-        <td class="${t.type === 'pemasukan' ? 'amount-in' : 'amount-out'}">
-          ${t.type === 'pemasukan' ? '+' : '-'} Rp ${formatNumber(t.amount)}
-        </td>
-        <td class="actions-cell no-print">
-          <button class="btn btn-secondary btn-sm" onclick="editTransaction(${t.id})">✏️</button>
-          <button class="btn btn-danger btn-sm" onclick="confirmDelete(${t.id})">🗑️</button>
-        </td>
-      </tr>
-    `).join('');
-  }
+  // Pisahkan data
+  const incomes = filtered.filter(t => t.type === 'pemasukan');
+  const expenses = filtered.filter(t => t.type === 'pengeluaran');
+  const goods = filtered.filter(t => t.type === 'barang');
+
+  // Render ke tabel masing-masing
+  renderIncomeTable(incomes);
+  renderExpenseTable(expenses);
+  renderGoodsTable(goods);
 
   updateSummary();
+}
+
+function renderIncomeTable(data) {
+  const tbody = document.getElementById('incomeTableBody');
+  if (data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Belum ada pemasukan</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map((t, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${formatDate(t.date)}</td>
+      <td>${escapeHtml(t.donor)}</td>
+      <td>${escapeHtml(t.description)}</td>
+      <td class="amount-in">+ Rp ${formatNumber(t.amount)}</td>
+      <td class="actions-cell no-print">
+        <button class="btn btn-secondary btn-sm" onclick="editTransaction(${t.id})">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="confirmDelete(${t.id})">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderExpenseTable(data) {
+  const tbody = document.getElementById('expenseTableBody');
+  if (data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Belum ada pengeluaran</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map((t, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${formatDate(t.date)}</td>
+      <td>${escapeHtml(t.donor) || '-'}</td>
+      <td>${escapeHtml(t.description)}</td>
+      <td class="amount-out">- Rp ${formatNumber(t.amount)}</td>
+      <td class="actions-cell no-print">
+        <button class="btn btn-secondary btn-sm" onclick="editTransaction(${t.id})">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="confirmDelete(${t.id})">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderGoodsTable(data) {
+  const tbody = document.getElementById('goodsTableBody');
+  if (data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Belum ada sedekah barang</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map((t, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${formatDate(t.date)}</td>
+      <td>${escapeHtml(t.donor)}</td>
+      <td class="amount-goods">${escapeHtml(t.itemName)}</td>
+      <td>${escapeHtml(t.itemQty)}</td>
+      <td class="actions-cell no-print">
+        <button class="btn btn-secondary btn-sm" onclick="editTransaction(${t.id})">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="confirmDelete(${t.id})">🗑️</button>
+      </td>
+    </tr>
+  `).join('');
 }
 
 function updateSummary() {
   const income = transactions.filter(t => t.type === 'pemasukan').reduce((s, t) => s + t.amount, 0);
   const expense = transactions.filter(t => t.type === 'pengeluaran').reduce((s, t) => s + t.amount, 0);
   const balance = income - expense;
+  
+  const totalGoods = transactions.filter(t => t.type === 'barang').length;
 
   document.getElementById('totalIncome').textContent = 'Rp ' + formatNumber(income);
   document.getElementById('totalExpense').textContent = 'Rp ' + formatNumber(expense);
   document.getElementById('totalBalance').textContent = 'Rp ' + formatNumber(balance);
+  document.getElementById('totalGoods').textContent = totalGoods + ' Transaksi';
 }
 
 form.addEventListener('submit', function (e) {
   e.preventDefault();
-  const amount = parseNumber(amountInput.value);
-  if (amount <= 0) {
-    showToast('Nominal harus lebih dari 0', 'warning', 'Nominal Tidak Valid');
-    return;
+  
+  const type = typeInput.value;
+  let amount = 0;
+  
+  if (type !== 'barang') {
+    amount = parseNumber(amountInput.value);
+    if (amount <= 0) {
+      showToast('Nominal harus lebih dari 0', 'warning', 'Nominal Tidak Valid');
+      return;
+    }
   }
 
   const data = {
-    type: typeInput.value,
+    type: type,
     donor: donorInput.value.trim(),
     description: descriptionInput.value.trim(),
     amount: amount,
+    itemName: itemNameInput.value.trim(),
+    itemQty: itemQtyInput.value.trim(),
     date: dateInput.value
   };
 
@@ -825,13 +1001,18 @@ form.addEventListener('submit', function (e) {
     exitEditMode();
   } else {
     transactions.push({ id: Date.now(), ...data });
-    showToast(`Transaksi Rp ${formatNumber(amount)} berhasil disimpan`, 'success', 'Tersimpan');
+    if (type === 'barang') {
+      showToast(`Sedekah ${data.itemName} berhasil disimpan`, 'success', 'Tersimpan');
+    } else {
+      showToast(`Transaksi Rp ${formatNumber(amount)} berhasil disimpan`, 'success', 'Tersimpan');
+    }
   }
 
   save();
   render();
   form.reset();
   dateInput.value = todayStr();
+  updateForm(); // Kembalikan label ke default
 });
 
 function editTransaction(id) {
@@ -842,8 +1023,12 @@ function editTransaction(id) {
   typeInput.value = t.type;
   donorInput.value = t.donor;
   descriptionInput.value = t.description;
-  amountInput.value = formatNumber(t.amount);
+  amountInput.value = t.amount ? formatNumber(t.amount) : '';
+  itemNameInput.value = t.itemName || '';
+  itemQtyInput.value = t.itemQty || '';
   dateInput.value = t.date;
+  
+  updateForm(); // Sesuaikan label saat edit
 
   formTitle.textContent = '✏️ Edit Transaksi';
   submitBtn.textContent = 'Update Transaksi';
@@ -863,6 +1048,7 @@ cancelBtn.addEventListener('click', function () {
   exitEditMode();
   form.reset();
   dateInput.value = todayStr();
+  updateForm();
   showToast('Edit dibatalkan', 'info', 'Dibatalkan');
 });
 
@@ -870,10 +1056,17 @@ async function confirmDelete(id) {
   const t = transactions.find(x => x.id === id);
   if (!t) return;
 
+  let msg = '';
+  if (t.type === 'barang') {
+    msg = `Sedekah barang "${t.itemName}" dari "${t.donor}" akan dihapus permanen.`;
+  } else {
+    msg = `Transaksi "${t.donor || 'Tanpa Nama'}" sebesar Rp ${formatNumber(t.amount)} akan dihapus permanen.`;
+  }
+
   const ok = await showModal({
     icon: '🗑️',
     title: 'Hapus Transaksi?',
-    message: `Transaksi "${t.donor}" sebesar Rp ${formatNumber(t.amount)} akan dihapus permanen.`,
+    message: msg,
     confirmText: 'Ya, Hapus',
     cancelText: 'Batal',
     type: 'danger'
@@ -915,13 +1108,15 @@ function exportCSV() {
     showToast('Tidak ada data untuk diexport', 'warning', 'Data Kosong');
     return;
   }
-  const headers = ['Tanggal', 'Jenis', 'Nama Donatur/Penerima', 'Keterangan', 'Nominal'];
+  const headers = ['Tanggal', 'Jenis', 'Nama Donatur/Penerima', 'Keterangan', 'Nominal (Rp)', 'Nama Barang', 'Jumlah Barang'];
   const rows = transactions.map(t => [
     t.date,
-    t.type === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran',
+    t.type === 'pemasukan' ? 'Pemasukan' : t.type === 'pengeluaran' ? 'Pengeluaran' : 'Sedekah Barang',
     t.donor,
     t.description,
-    t.amount
+    t.amount || 0,
+    t.itemName || '',
+    t.itemQty || ''
   ]);
   const csv = [headers, ...rows]
     .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
@@ -938,7 +1133,6 @@ function exportCSV() {
 }
 
 searchInput.addEventListener('input', render);
-filterType.addEventListener('change', render);
 
 /* ================= INIT ================= */
 checkSession();
